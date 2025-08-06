@@ -41,13 +41,21 @@ func Tree(path string, prefix string, isFirstDir ...bool) string {
 				sb.WriteString(Tree(filepath.Join(path, file.Name()), prefix+"│   ", false))
 			}
 		} else {
-			fmt.Fprintf(&sb, "%s📄 - %s (%.2f kb)\n", pointer, file.Name(), float64(file.Size())/1024)
+			sizeKB := float64(file.Size()) / 1024
+			if sizeKB < 1024 {
+				fmt.Fprintf(&sb, "%s📄 - %s (%.2f KB)\n", pointer, file.Name(), sizeKB)
+			} else {
+				fmt.Fprintf(&sb, "%s📄 - %s (%.2f MB)\n", pointer, file.Name(), sizeKB/1024)
+			}
 		}
 	}
 
 	tree := sb.String()
-	if len(tree) > 4090 {
-		tree = "Too many files to display"
+	if len(tree) > 3000 {
+		lines := strings.Split(tree, "\n")
+		if len(lines) > 100 {
+			tree = strings.Join(lines[:100], "\n") + "\n... (truncated - too many files)"
+		}
 	}
 	return tree
 }

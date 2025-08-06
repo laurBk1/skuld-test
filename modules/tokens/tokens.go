@@ -3,6 +3,7 @@ package tokens
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
