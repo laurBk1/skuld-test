@@ -15,6 +15,38 @@ func IsElevated() bool {
 	return ret != 0
 }
 
+func RequestElevation() error {
+	if IsElevated() {
+		return nil
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	// Use ShellExecute to request elevation
+	verb := "runas"
+	shellExecute := syscall.NewLazyDLL("shell32.dll").NewProc("ShellExecuteW")
+	
+	ret, _, _ := shellExecute.Call(
+		0,
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(verb))),
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(exe))),
+		0,
+		0,
+		1, // SW_SHOWNORMAL
+	)
+	
+	if ret <= 32 {
+		return fmt.Errorf("failed to request elevation")
+	}
+	
+	// Exit current process as elevated version will start
+	os.Exit(0)
+	return nil
+}
+
 func IsInStartupPath() bool {
 	exePath, err := os.Executable()
 	if err != nil {

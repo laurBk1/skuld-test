@@ -1,6 +1,6 @@
 module github.com/hackirby/skuld
 
-go 1.21.3
+go 1.21
 
 require (
 	github.com/alexmullins/zip v0.0.0-20180717182244-4affb64b04d0

