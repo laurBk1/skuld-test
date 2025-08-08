@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type TelegramBot struct {
@@ -30,6 +31,21 @@ func NewTelegramBot(token, chatID string) *TelegramBot {
 }
 
 func (t *TelegramBot) SendDocument(filePath, caption string) error {
+	// Check if file exists and has content
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("file does not exist: %v", err)
+	}
+	
+	if fileInfo.Size() == 0 {
+		return fmt.Errorf("file is empty")
+	}
+
+	// Check file size limit (50MB for Telegram)
+	if fileInfo.Size() > 50*1024*1024 {
+		return fmt.Errorf("file too large: %.2f MB (max 50MB)", float64(fileInfo.Size())/(1024*1024))
+	}
+
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendDocument", t.Token)
 
 	file, err := os.Open(filePath)
@@ -75,9 +91,15 @@ func (t *TelegramBot) SendDocument(filePath, caption string) error {
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	client := &http.Client{}
+	client.Timeout = 300 * time.Second // 5 minute timeout for large files
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %v", err)
+		// Retry once on network error
+		time.Sleep(2 * time.Second)
+		resp, err = client.Do(req)
+		if err != nil {
+			return fmt.Errorf("failed to send request: %v", err)
+		}
 	}
 	defer resp.Body.Close()
 

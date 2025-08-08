@@ -110,6 +110,34 @@ func Zip(dirPath string, zipName string) error {
 	return nil
 }
 
+func GetDirectorySize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	return size, err
+}
+
+func CountFiles(path string) (int, error) {
+	var count int
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			count++
+		}
+		return err
+	})
+	return count, err
+}
+
 func ZipWithPassword(dirPath string, zipName string, password string) error {
 	zipFile, err := os.Create(zipName)
 	if err != nil {
@@ -122,7 +150,7 @@ func ZipWithPassword(dirPath string, zipName string, password string) error {
 
 	err = filepath.Walk(dirPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return nil // Continue on error
 		}
 
 		if info.IsDir() {
@@ -131,33 +159,29 @@ func ZipWithPassword(dirPath string, zipName string, password string) error {
 
 		relPath, err := filepath.Rel(dirPath, filePath)
 		if err != nil {
-			return err
+			return nil // Continue on error
 		}
 
 		zipEntry, err := zipWriter.Encrypt(relPath, password)
 		if err != nil {
-			return err
+			return nil // Continue on error
 		}
 
 		file, err := os.Open(filePath)
 		if err != nil {
-			return err
+			return nil // Continue on error
 		}
 		defer file.Close()
 
 		_, err = io.Copy(zipEntry, file)
 		if err != nil {
-			return err
+			return nil // Continue on error
 		}
 
 		return nil
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func Copy(src, dst string) (err error) {

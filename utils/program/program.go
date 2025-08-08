@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )

