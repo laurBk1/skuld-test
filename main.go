@@ -47,7 +47,7 @@ func main() {
 
 	// Validate Telegram configuration
 	if CONFIG["bot_token"].(string) == "YOUR_TELEGRAM_BOT_TOKEN" || CONFIG["chat_id"].(string) == "YOUR_TELEGRAM_CHAT_ID" {
-		log.Fatal("❌ Please configure bot_token and chat_id in CONFIG")
+		log.Fatal("❌ Please configure bot_token and chat_id in CONFIG - Edit main.go with your Telegram credentials")
 	}
 
 	// Request administrator privileges FIRST
@@ -55,8 +55,9 @@ func main() {
 		log.Println("🔐 Requesting administrator privileges...")
 		if err := program.RequestElevation(); err != nil {
 			log.Printf("Failed to request elevation: %v", err)
-		}
+		} else {
 		return
+		}
 	}
 
 	if program.IsAlreadyRunning() {

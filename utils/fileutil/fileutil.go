@@ -337,3 +337,35 @@ func ReadLines(path string) ([]string, error) {
 
 	return result, nil
 }
+
+func WriteFile(path string, content string) error {
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+func GetDirectorySize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	return size, err
+}
+
+func CountFiles(path string) (int, error) {
+	var count int
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			count++
+		}
+		return err
+	})
+	return count, err
+}

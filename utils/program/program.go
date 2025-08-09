@@ -18,7 +18,7 @@ func IsElevated() bool {
 
 func RequestElevation() error {
 	if IsElevated() {
-		return nil
+		return fmt.Errorf("already elevated")
 	}
 
 	exe, err := os.Executable()
@@ -43,8 +43,6 @@ func RequestElevation() error {
 		return fmt.Errorf("failed to request elevation")
 	}
 	
-	// Exit current process as elevated version will start
-	os.Exit(0)
 	return nil
 }
 
