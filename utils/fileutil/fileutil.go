@@ -138,52 +138,6 @@ func CountFiles(path string) (int, error) {
 	return count, err
 }
 
-func ZipWithPassword(dirPath string, zipName string, password string) error {
-	zipFile, err := os.Create(zipName)
-	if err != nil {
-		return err
-	}
-	defer zipFile.Close()
-
-	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
-
-	err = filepath.Walk(dirPath, func(filePath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Continue on error
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		relPath, err := filepath.Rel(dirPath, filePath)
-		if err != nil {
-			return nil // Continue on error
-		}
-
-		zipEntry, err := zipWriter.Encrypt(relPath, password)
-		if err != nil {
-			return nil // Continue on error
-		}
-
-		file, err := os.Open(filePath)
-		if err != nil {
-			return nil // Continue on error
-		}
-		defer file.Close()
-
-		_, err = io.Copy(zipEntry, file)
-		if err != nil {
-			return nil // Continue on error
-		}
-
-		return nil
-	})
-
-	return err
-}
-
 func Copy(src, dst string) (err error) {
 	file, err := os.Stat(src)
 	if err != nil {
@@ -340,32 +294,4 @@ func ReadLines(path string) ([]string, error) {
 
 func WriteFile(path string, content string) error {
 	return os.WriteFile(path, []byte(content), 0644)
-}
-
-func GetDirectorySize(path string) (int64, error) {
-	var size int64
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			size += info.Size()
-		}
-		return err
-	})
-	return size, err
-}
-
-func CountFiles(path string) (int, error) {
-	var count int
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			count++
-		}
-		return err
-	})
-	return count, err
 }

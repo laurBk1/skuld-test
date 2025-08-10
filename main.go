@@ -28,8 +28,8 @@ import (
 
 func main() {
 	CONFIG := map[string]interface{}{
-		"bot_token": "7906405463:AAGJhJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ", // Your Telegram Bot Token
-		"chat_id":   "-1002345678901",   // Your Telegram Chat ID (group)
+		"bot_token": "YOUR_TELEGRAM_BOT_TOKEN", // Your Telegram Bot Token
+		"chat_id":   "YOUR_TELEGRAM_CHAT_ID",   // Your Telegram Chat ID (group)
 		"cryptos": map[string]string{
 			"BTC":  "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", // Your Bitcoin address
 			"BCH":  "qr5jqsj3wdxkrx5c5v7hfxpg2v9f8w6h2c8r4t3e5d", // Your Bitcoin Cash address

